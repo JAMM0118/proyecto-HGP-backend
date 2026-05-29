@@ -10,6 +10,8 @@ def upload_csv():
     """
     Subir archivo CSV
     ---
+    tags:
+      - CSV
     consumes:
       - multipart/form-data
     parameters:
@@ -36,6 +38,8 @@ def avg_price_by_city_stats():
     """
     Obtener estadísticas de precio promedio por ciudad
     ---
+    tags:
+      - CSV 
     responses:
       200:
         description: Estadísticas obtenidas correctamente
@@ -48,6 +52,8 @@ def normalize_preview():
     """
     Obtener vista previa de datos normalizados
     ---
+    tags:
+      - CSV
     responses:
       200:
         description: Vista previa obtenida correctamente
@@ -60,8 +66,11 @@ def normalize_preview():
 @csv_bp.route("/normalize-save", methods=["POST"])
 def normalize_and_save():
     """
+
     Normalizar y guardar datos
     ---
+    tags:
+      - CSV
     responses:
       200:
         description: Datos normalizados y guardados correctamente
@@ -74,6 +83,8 @@ def remove_duplicates():
     """
     Eliminar registros duplicados
     ---
+    tags:
+      - CSV
     responses:
       200:
         description: Registros duplicados eliminados correctamente
@@ -86,6 +97,8 @@ def clean_data():
     """
     Limpiar datos (eliminar registros con datos faltantes o inconsistentes)
     ---
+    tags:
+      - CSV
     responses:
       200:
         description: Datos limpiados correctamente
@@ -99,6 +112,8 @@ def data_quality():
     """
     Obtener estadísticas de calidad de los datos
     ---
+    tags:
+      - CSV
     responses:
       200:
         description: Estadísticas de calidad obtenidas correctamente
@@ -112,6 +127,8 @@ def classify_properties():
     """
     Clasificar propiedades en categorías (bajo, medio, alto)
     ---
+    tags:
+      - CSV
     responses:
       200:
         description: Propiedades clasificadas correctamente 
@@ -124,6 +141,8 @@ def classify_preview():
     """
     Obtener vista previa de clasificación de tipo de propiedad
     ---
+    tags:
+      - CSV
     responses:
       200:
         description: Vista previa obtenida correctamente

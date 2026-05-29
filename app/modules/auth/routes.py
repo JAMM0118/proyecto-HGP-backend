@@ -10,6 +10,33 @@ auth_bp = Blueprint("auth", __name__)
 @auth_bp.route("/register", methods=["POST"])
 @limiter.limit("5 per hour")
 def register():
+    """
+    Endpoint para registrar un nuevo usuario
+    ---
+
+    tags:
+        - Autenticación
+
+    parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            properties:
+              email:
+                type: string
+                example: user@example.com
+              password:
+                type: string
+                example: strongpassword123
+              role:
+                type: string
+                example: usuario
+    responses:
+      200:
+        description: Usuario registrado correctamente
+    """
     data = request.get_json(force=True, silent=True) or {}
     result, status = register_user(data)
     return jsonify(result), status
@@ -18,6 +45,28 @@ def register():
 @auth_bp.route("/login", methods=["POST"])
 @limiter.limit("10 per hour")
 def login():
+    """
+    Endpoint para autenticar un usuario
+    ---
+    tags:
+      - Autenticación
+    parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            properties:
+              email:
+                type: string
+                example: user@example.com
+              password:
+                type: string
+                example: strongpassword123
+    responses:
+      200:
+        description: Usuario autenticado correctamente
+    """
     data = request.get_json(force=True, silent=True) or {}
     result, status = authenticate_user(data)
     return jsonify(result), status
@@ -26,7 +75,22 @@ def login():
 @auth_bp.route("/logout", methods=["POST"])
 @token_required
 def logout(token_payload):
-    """Logout endpoint - requires valid token"""
+    """Logout endpoint - requires valid token
+    ---
+
+    tags:
+      - Autenticación
+
+    parameters:
+        - name: Authorization
+          in: header
+          required: true
+          type: string
+          description: Token de autenticación (Bearer <token>)
+    responses:
+      200:
+        description: Usuario deslogueado correctamente
+    """
     try:
         auth_header = request.headers.get('Authorization', '')
         token = auth_header.split(" ")[1] if " " in auth_header else None
@@ -43,6 +107,21 @@ def logout(token_payload):
 @auth_bp.route("/profile", methods=["GET"])
 @token_required
 def profile(token_payload):
+    """
+    Endpoint para obtener el perfil de un usuario
+    ---
+    tags:
+      - Autenticación
+    parameters:
+        - name: Authorization
+          in: header
+          required: true
+          type: string
+          description: Token de autenticación (Bearer <token>)
+    responses:
+      200:
+        description: Perfil del usuario obtenido correctamente
+    """
     try:
         user = find_user_by_id(token_payload["user_id"])
         if not user:

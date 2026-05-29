@@ -6,4 +6,3 @@ email-validator==2.1.0
 Flask-Limiter==3.5.0
 Werkzeug==2.3.7
 flasgger==0.9.7.1
-

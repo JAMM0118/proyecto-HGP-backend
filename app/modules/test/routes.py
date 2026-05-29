@@ -8,6 +8,8 @@ def home():
     """
     Endpoint de prueba
     ---
+    tags:
+      - Test
     responses:
       200:
         description: Mensaje de prueba
