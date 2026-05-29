@@ -1,11 +1,23 @@
 import re
 
+VALID_ROLES = ["administrador", "invitado", "analista_datos"]
+
 def validate_email_format(email):
     """Validate email format with simple regex"""
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     if re.match(pattern, email):
         return True, None
     return False, "Email inválido"
+
+def validate_user_role(role):
+    """Validate user role"""
+    if not role:
+        return False, "El tipo de usuario es requerido"
+    
+    if role not in VALID_ROLES:
+        return False, f"Tipo de usuario inválido. Opciones: {', '.join(VALID_ROLES)}"
+    
+    return True, None
 
 def validate_password_strength(password):
     """

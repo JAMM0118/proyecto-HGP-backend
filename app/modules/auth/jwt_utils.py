@@ -3,6 +3,7 @@ import os
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import current_app, request, jsonify
+from .model import is_token_blacklisted
 
 def generate_token(user_id, email):
     """Generate JWT token for user"""
@@ -22,6 +23,10 @@ def generate_token(user_id, email):
 def verify_token(token):
     """Verify JWT token and return payload"""
     try:
+        # Check if token is blacklisted (logged out)
+        if is_token_blacklisted(token):
+            return None
+        
         payload = jwt.decode(
             token,
             current_app.config.get("JWT_SECRET_KEY"),

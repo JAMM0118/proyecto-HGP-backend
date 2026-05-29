@@ -10,69 +10,65 @@
 
 **Archivo:** `app/modules/auth/jwt_utils.py`
 
-```python
-# Uso en routes protegidas
-@auth_bp.route("/profile", methods=["GET"])
-@token_required
-def profile(token_payload):
-    # token_payload contiene: {'user_id': '...', 'email': '...', 'iat': ..., 'exp': ...}
-    pass
-```
+### 2. **Tipos de Usuario (Roles)**
+- 👨‍💼 **Administrador** - Acceso completo
+- 👤 **Invitado** - Acceso limitado (por defecto)
+- 📊 **Analista de Datos** - Acceso a reportes y análisis
+- ⚠️ Un usuario solo puede tener UN tipo
 
-### 2. **Validación de Email**
+**Validaciones:**
+- Rol requerido en registro
+- Solo valores: `administrador`, `invitado`, `analista_datos`
+
+### 3. **Logout / Invalidar Tokens**
+- 🚫 Tokens invalidados al logout
+- 🔐 Previene reutilización de tokens
+- ⏰ Tokens guardados en blacklist con timestamp
+
+### 4. **Validación de Email**
 - ✅ Validación de formato de email con regex
 - 📧 Previene emails inválidos en registro
 
-**Validaciones:**
-- Debe contener @
-- Debe tener dominio válido
-- Formato: `user@domain.com`
-
-### 3. **Validación de Contraseña Fuerte**
+### 5. **Validación de Contraseña Fuerte**
 - 🔐 Mínimo 8 caracteres
 - 🔤 Al menos una mayúscula
 - 🔡 Al menos una minúscula
 - 🔢 Al menos un número
 - ✨ Al menos un carácter especial
 
-**Caracteres especiales permitidos:** `!@#$%^&*(),.?":{}|<>`
-
-### 4. **Rate Limiting**
+### 6. **Rate Limiting**
 - 🚫 Máximo 5 registros por hora por IP
 - 🚫 Máximo 10 logins por hora por IP
 - ⏱️ Protección contra ataques de fuerza bruta
 
-**Archivo:** `app/extensions/limiter.py`
-
-### 5. **Campos de Auditoría**
+### 7. **Campos de Auditoría**
 - 📅 `created_at` - Fecha de creación del usuario
 - 📅 `updated_at` - Fecha de última actualización
 - ✅ `is_active` - Estado del usuario
 - 🔑 `last_login` - Último acceso exitoso
-
-### 6. **Variables de Entorno**
-- 🔑 `JWT_SECRET_KEY` - Clave secreta para JWT
-- 🔐 `JWT_ALGORITHM` - Algoritmo (HS256)
-- ⏰ `JWT_EXPIRATION_HOURS` - Expiración de tokens
-- 🗄️ `MONGO_URI` - Conexión a MongoDB
-
-**Archivo:** `.env.example`
+- 👤 `role` - Tipo de usuario
 
 ---
 
-## 📋 Nuevos Endpoints
+## 📋 Endpoints
 
 ### 1. POST `/api/auth/register`
-Registra un nuevo usuario
+Registra un nuevo usuario con tipo
 
 **Request:**
 ```json
 {
   "email": "user@example.com",
   "password": "SecurePass123!",
-  "name": "John Doe"
+  "name": "John Doe",
+  "role": "analista_datos"
 }
 ```
+
+**Roles válidos:**
+- `administrador`
+- `invitado`
+- `analista_datos`
 
 **Response (201):**
 ```json
@@ -81,15 +77,16 @@ Registra un nuevo usuario
   "user": {
     "id": "507f1f77bcf86cd799439011",
     "email": "user@example.com",
-    "name": "John Doe"
+    "name": "John Doe",
+    "role": "analista_datos"
   }
 }
 ```
 
 **Errores:**
-- 400: Email/contraseña/nombre requeridos
-- 400: Email inválido
-- 400: Contraseña débil
+- 400: Email/contraseña/nombre/rol requeridos
+- 400: Email inválido o contraseña débil
+- 400: Rol inválido
 - 409: Email ya existe
 - 429: Rate limit excedido
 
@@ -113,7 +110,8 @@ Autentica usuario y retorna JWT
   "user": {
     "id": "507f1f77bcf86cd799439011",
     "email": "user@example.com",
-    "name": "John Doe"
+    "name": "John Doe",
+    "role": "analista_datos"
   },
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
@@ -127,7 +125,31 @@ Autentica usuario y retorna JWT
 
 ---
 
-### 3. GET `/api/auth/profile`
+### 3. POST `/api/auth/logout`
+Cierra sesión e invalida el token
+
+**Headers requeridos:**
+```
+Authorization: Bearer {token}
+```
+
+**Response (200):**
+```json
+{
+  "message": "Sesión cerrada exitosamente"
+}
+```
+
+**Errores:**
+- 400: Token no encontrado
+- 401: Token requerido/inválido
+- 500: Error del servidor
+
+**Nota:** Después de logout, no podrás usar el mismo token.
+
+---
+
+### 4. GET `/api/auth/profile`
 Obtiene el perfil del usuario autenticado
 
 **Headers requeridos:**
@@ -142,6 +164,7 @@ Authorization: Bearer {token}
     "id": "507f1f77bcf86cd799439011",
     "email": "user@example.com",
     "name": "John Doe",
+    "role": "analista_datos",
     "created_at": "2026-05-28T21:26:43.699Z",
     "last_login": "2026-05-28T21:34:52.123Z"
   }
@@ -149,24 +172,34 @@ Authorization: Bearer {token}
 ```
 
 **Errores:**
-- 401: Token requerido
-- 401: Token inválido o expirado
+- 401: Token requerido/inválido
 - 404: Usuario no encontrado
 
 ---
 
 ## 🗄️ Schema de Usuarios (MongoDB)
 
+### Users Collection
 ```javascript
 {
   "_id": ObjectId,
   "email": String,           // único, minúsculas
   "password": String,        // hasheada
   "name": String,
+  "role": String,            // administrador, invitado, analista_datos
   "is_active": Boolean,      // por defecto true
   "created_at": Date,
   "updated_at": Date,
   "last_login": Date         // null si nunca ha entrado
+}
+```
+
+### Token Blacklist Collection
+```javascript
+{
+  "_id": ObjectId,
+  "token": String,           // token invalidado
+  "created_at": Date         // para limpieza periódica
 }
 ```
 
@@ -185,8 +218,9 @@ pip install -r requirements.txt
 cp .env.example .env
 
 # Editar .env con tus valores
-JWT_SECRET_KEY=your-super-secret-key-change-this
+JWT_SECRET_KEY=L9s8hLTO1shGkPFm9KVnqEUTFtHmMVBWC2jRVI2AXYb
 MONGO_URI=mongodb://localhost:27017/mydb
+JWT_EXPIRATION_HOURS=24
 ```
 
 ### 3. Iniciar servidor
@@ -194,47 +228,39 @@ MONGO_URI=mongodb://localhost:27017/mydb
 python run.py
 ```
 
-### 4. Probar endpoints (necesita MongoDB activo)
-```bash
-python test_auth_v2.py
-```
-
 ---
 
-## 📦 Dependencias Nuevas
-
-```
-PyJWT==2.13.0              # Autenticación JWT
-Flask-Limiter==3.5.0       # Rate limiting
-python-dotenv==1.0.0       # Variables de entorno
-```
-
----
-
-## 🔄 Flujo de Autenticación
+## 🔄 Flujo de Autenticación Completo
 
 ```
 1. Usuario se registra (POST /register)
+   ├─ Email válido?
+   ├─ Contraseña fuerte?
+   ├─ Rol válido?
+   └─ Email único?
    ↓
-2. Validación de email, contraseña y nombre
+2. Se hashea la contraseña
+3. Se crea usuario en MongoDB CON TIPO
    ↓
-3. Se hashea la contraseña
+4. Usuario hace login (POST /login)
+   ├─ Email existe?
+   └─ Contraseña correcta?
    ↓
-4. Se crea usuario en MongoDB
+5. Se genera JWT con user_id y email
+6. JWT se retorna al cliente
    ↓
-5. Usuario hace login (POST /login)
+7. Cliente incluye JWT: Authorization: Bearer {token}
    ↓
-6. Se validan credenciales
+8. Servidor verifica JWT (@token_required)
+   ├─ JWT válido?
+   └─ ¿Está en blacklist?
    ↓
-7. Se genera JWT con user_id y email
+9. Usuario accede a ruta protegida (GET /profile)
    ↓
-8. JWT se retorna al cliente
-   ↓
-9. Cliente incluye JWT en header: Authorization: Bearer {token}
-   ↓
-10. Servidor verifica JWT en @token_required
-   ↓
-11. Usuario accede a ruta protegida (GET /profile)
+10. Para logout (POST /logout)
+    ├─ Token se agrega a blacklist
+    ├─ Cliente elimina token
+    └─ Futuras peticiones con ese token fallan
 ```
 
 ---
@@ -244,50 +270,43 @@ python-dotenv==1.0.0       # Variables de entorno
 ✅ **Implementado:**
 - Contraseñas hasheadas con werkzeug.security
 - JWT firmados con algoritmo HS256
+- Token blacklist para logout
 - Rate limiting para prevenir fuerza bruta
-- Validación de email y contraseña
+- Validación de email, contraseña y rol
 - Tokens con expiración
+- Un usuario = UN tipo solamente
 
 ⚠️ **Para Producción:**
 - Cambiar JWT_SECRET_KEY a valor único y seguro
 - Usar HTTPS siempre
 - Configurar CORS apropiadamente
-- Implementar HTTPS_ONLY en cookies
 - Usar environment variables secretas
+- Limpiar token_blacklist periódicamente (índice TTL)
+- Implementar 2FA para administradores
 
 ---
 
-## 📝 Archivos Modificados
+## 📝 Archivos Modificados/Nuevos
 
 ```
 app/
-├── __init__.py                          # Cargar dotenv, limiter, JWT config
+├── __init__.py                          # ACTUALIZADO: Cargar dotenv, limiter
 ├── extensions/
 │   ├── limiter.py                       # NUEVO: Flask-Limiter config
 ├── modules/auth/
-│   ├── model.py                         # ACTUALIZADO: Audit fields
-│   ├── routes.py                        # ACTUALIZADO: JWT, rate limiting
-│   ├── service.py                       # ACTUALIZADO: Validaciones, JWT
-│   ├── validators.py                    # NUEVO: Email y password validators
-│   └── jwt_utils.py                     # NUEVO: Funciones JWT
+│   ├── model.py                         # ACTUALIZADO: Role + blacklist methods
+│   ├── routes.py                        # ACTUALIZADO: Logout endpoint
+│   ├── service.py                       # ACTUALIZADO: Role validation + logout
+│   ├── validators.py                    # ACTUALIZADO: Role validation
+│   └── jwt_utils.py                     # ACTUALIZADO: Check blacklist
 
-requirements.txt                         # NUEVO: Dependencies
-.env.example                             # NUEVO: Template de variables
+.env                                     # NUEVO: Variables de entorno
+.env.example                             # NUEVO: Template
+.gitignore                               # NUEVO: Exclusiones
+requirements.txt                         # ACTUALIZADO: Dependencies
+AUTH_IMPLEMENTATION.md                   # NUEVO: Esta documentación
+POSTMAN_GUIDE.md                         # NUEVO: Guía Postman
 ```
-
----
-
-## 🧪 Tests Incluidos
-
-`test_auth_v2.py` - Script que valida:
-- ✅ Registro exitoso
-- ✅ Rechazo de contraseña débil
-- ✅ Rechazo de email inválido
-- ✅ Rechazo de duplicado
-- ✅ Login exitoso con JWT
-- ✅ Acceso a perfil con token
-- ✅ Rechazo de login fallido
-- ✅ Rechazo sin token
 
 ---
 
@@ -296,23 +315,10 @@ requirements.txt                         # NUEVO: Dependencies
 - [ ] Confirmación de email
 - [ ] Recuperación de contraseña
 - [ ] Refresh tokens
-- [ ] Roles y permisos
+- [ ] Permisos específicos por rol
 - [ ] 2FA (Two-Factor Authentication)
 - [ ] Integración con OAuth (Google, GitHub)
-- [ ] Blacklist de tokens revocados
-
----
-
-## 📧 Soporte
-
-Si hay problemas con MongoDB, asegúrate que esté corriendo:
-```bash
-# Windows
-mongod
-
-# Linux/Mac
-brew services start mongodb-community
-```
+- [ ] Limpieza automática de token_blacklist
 
 ---
 

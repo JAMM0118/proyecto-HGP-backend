@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from .service import authenticate_user, register_user
+from .service import authenticate_user, register_user, logout_user
 from .jwt_utils import token_required, verify_token
 from .model import find_user_by_id
 from app.extensions.limiter import limiter
@@ -23,6 +23,23 @@ def login():
     return jsonify(result), status
 
 
+@auth_bp.route("/logout", methods=["POST"])
+@token_required
+def logout(token_payload):
+    """Logout endpoint - requires valid token"""
+    try:
+        auth_header = request.headers.get('Authorization', '')
+        token = auth_header.split(" ")[1] if " " in auth_header else None
+        
+        if not token:
+            return jsonify({"error": "Token no encontrado"}), 400
+        
+        result, status = logout_user(token)
+        return jsonify(result), status
+    except Exception as e:
+        return jsonify({"error": "Error al cerrar sesión"}), 500
+
+
 @auth_bp.route("/profile", methods=["GET"])
 @token_required
 def profile(token_payload):
@@ -36,6 +53,7 @@ def profile(token_payload):
                 "id": str(user["_id"]),
                 "email": user.get("email"),
                 "name": user.get("name"),
+                "role": user.get("role", "invitado"),
                 "created_at": user.get("created_at").isoformat() if user.get("created_at") else None,
                 "last_login": user.get("last_login").isoformat() if user.get("last_login") else None,
             }
