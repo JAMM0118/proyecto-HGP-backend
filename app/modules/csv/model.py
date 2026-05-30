@@ -2,7 +2,7 @@ from app.extensions.db import mongo
 
 def save_data(data):
     if data:
-        mongo.db.properties.insert_many(data)
+        mongo.db.properties.insert_many(data, ordered=False)
 
 def get_all_data():
     return list(mongo.db.properties.find({}, {"_id": 0}))
