@@ -41,45 +41,115 @@ def normalize_record(doc):
 
     return normalized
 
+import pandas as pd
+
+
 def transform_to_star_schema(df: pd.DataFrame):
+
+    df = df.copy()
+
+    df.rename(columns={
+        "Fecha Actualizacion": "fecha_actualizacion",
+        "ID Propiedad": "id_propiedad",
+        "Link Propiedad": "link_propiedad",
+        "Tipo Propiedad": "tipo_propiedad",
+        "Tipo Operacion": "tipo_operacion",
+        "Link Google Maps": "link_google_maps",
+        "Ubicacion Principal": "ubicacion_principal",
+        "Piso N": "piso_n",
+        "Area Construida": "area_construida",
+        "Estado Construccion": "estado_construccion"
+    }, inplace=True)
+
+    df["fecha_actualizacion"] = pd.to_datetime(
+        df["fecha_actualizacion"],
+        errors="coerce"
+    )
+
+    text_columns = [
+        "Ciudad",
+        "Localidad",
+        "Zona",
+        "Region",
+        "tipo_propiedad",
+        "estado_construccion",
+        "Antiguedad_Categoria"
+    ]
+
+    for col in text_columns:
+        df[col] = (
+            df[col]
+            .fillna("")
+            .astype(str)
+            .str.lower()
+            .str.strip()
+        )
 
     docs = []
 
-    for _, row in df.iterrows():
-
+    for row in df.itertuples(index=False):
+        
         doc = {
-            # 🔹 HECHOS
-            "precio": float(row.get("Precio", 0)) if pd.notna(row.get("Precio")) else None,
-            "area_construida": float(row.get("Area Construida", 0)) if pd.notna(row.get("Area Construida")) else None,
-            "habitaciones": int(row.get("Habitaciones", 0)) if pd.notna(row.get("Habitaciones")) else None,
-            "banos": int(row.get("Banos", 0)) if pd.notna(row.get("Banos")) else None,
-            "garages": int(row.get("Garages", 0)) if pd.notna(row.get("Garages")) else None,
-            "estrato": int(row.get("Estrato", 0)) if pd.notna(row.get("Estrato")) else None,
+            # HECHOS
+            "precio": (
+                float(row.Precio)
+                if pd.notna(row.Precio)
+                else None
+            ),
 
-            # 🔹 DIMENSION UBICACION
+            "area_construida": (
+                float(row.area_construida)
+                if pd.notna(row.area_construida)
+                else None
+            ),
+
+            "habitaciones": (
+                int(row.Habitaciones)
+                if pd.notna(row.Habitaciones)
+                else None
+            ),
+
+            "banos": (
+                int(row.Banos)
+                if pd.notna(row.Banos)
+                else None
+            ),
+
+            "garages": (
+                int(row.Garages)
+                if pd.notna(row.Garages)
+                else None
+            ),
+
+            "estrato": (
+                int(row.Estrato)
+                if pd.notna(row.Estrato)
+                else None
+            ),
+
+            # DIMENSIÓN UBICACIÓN
             "ubicacion": {
-                "ciudad": str(row.get("Ciudad", "")).lower().strip(),
-                "localidad": str(row.get("Localidad", "")).lower().strip(),
-                "zona": str(row.get("Zona", "")).lower().strip(),
-                "region": str(row.get("Region", "")).lower().strip()
+                "ciudad": row.Ciudad,
+                "localidad": row.Localidad,
+                "zona": row.Zona,
+                "region": row.Region
             },
 
-            # 🔹 DIMENSION PROPIEDAD
+            # DIMENSIÓN PROPIEDAD
             "propiedad": {
-                "tipo_propiedad": str(row.get("Tipo Propiedad", "")).lower().strip(),
-                "estado_construccion": str(row.get("Estado_Construccion", "")).lower().strip(),
-                "antiguedad_categoria": str(row.get("Antiguedad_Categoria", "")).lower().strip()
+                "tipo_propiedad": row.tipo_propiedad,
+                "estado_construccion": row.estado_construccion,
+                "antiguedad_categoria": row.Antiguedad_Categoria
             }
         }
 
-        # 🔹 DIMENSION TIEMPO
-        fecha = pd.to_datetime(row.get("Fecha Actualizacion"), errors="coerce")
+        fecha = row.fecha_actualizacion
 
         if pd.notna(fecha):
             doc["tiempo"] = {
-                "Fecha": fecha.isoformat(),
-                "anio": int(fecha.year),
-                "mes": int(fecha.month)
+                "fecha": fecha.to_pydatetime(),
+                "anio": fecha.year,
+                "mes": fecha.month
             }
 
         docs.append(doc)
