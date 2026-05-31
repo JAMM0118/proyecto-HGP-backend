@@ -39,6 +39,11 @@ def train_model():
 
     df = df.dropna()
 
+    df = df[
+        (df["precio"] > 0)
+        & (df["area_construida"] > 0)
+    ]
+
     X = df[
         [
             "area_construida",

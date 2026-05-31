@@ -1,5 +1,6 @@
 import os
 import joblib
+import pandas as pd
 
 from datetime import datetime
 
@@ -22,28 +23,29 @@ def predict_price(data):
 
     model = joblib.load(MODEL_PATH)
 
-    features = [[
-        data["area_construida"],
-        data["habitaciones"],
-        data["banos"],
-        data["tipo_propiedad"],
-        data["ciudad"]
-    ]]
+    features = pd.DataFrame([
+        {
+            "area_construida": float(data["area_construida"]),
+            "habitaciones": int(data["habitaciones"]),
+            "banos": int(data["banos"]),
+            "tipo_propiedad": str(data["tipo_propiedad"]).lower().strip(),
+            "ciudad": str(data["ciudad"]).lower().strip()
+        }
+    ])
 
     prediction = model.predict(features)[0]
 
     result = {
         "fecha": datetime.utcnow().isoformat(),
-        "area_construida": data["area_construida"],
-        "habitaciones": data["habitaciones"],
-        "banos": data["banos"],
-        "tipo_propiedad": data["tipo_propiedad"],
-        "ciudad": data["ciudad"],
+        "area_construida": float(data["area_construida"]),
+        "habitaciones": int(data["habitaciones"]),
+        "banos": int(data["banos"]),
+        "tipo_propiedad": str(data["tipo_propiedad"]).lower().strip(),
+        "ciudad": str(data["ciudad"]).lower().strip(),
         "precio_estimado": round(float(prediction), 0)
     }
 
     save_prediction(result)
-
     result.pop("_id", None)
 
     return result
