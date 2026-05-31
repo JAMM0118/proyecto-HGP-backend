@@ -7,6 +7,7 @@ from app.extensions.swagger import swagger
 from app.modules.auth.routes import auth_bp
 from app.modules.csv.routes import csv_bp
 from app.modules.test.routes import test_bp
+from app.modules.prediction.routes import prediction_bp
 
 load_dotenv()
 
@@ -31,5 +32,6 @@ def create_app():
     app.register_blueprint(test_bp, url_prefix="/api/test")
     app.register_blueprint(csv_bp, url_prefix="/api/csv")
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
+    app.register_blueprint(prediction_bp,url_prefix="/api/prediction")
     
     return app
