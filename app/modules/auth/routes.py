@@ -33,6 +33,9 @@ def register():
               role:
                 type: string
                 example: usuario
+              name:
+                type: string
+                example: John Doe
     responses:
       200:
         description: Usuario registrado correctamente

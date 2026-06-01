@@ -132,14 +132,20 @@ def transform_to_star_schema(df: pd.DataFrame):
                 "ciudad": row.Ciudad,
                 "localidad": row.Localidad,
                 "zona": row.Zona,
-                "region": row.Region
+                "region": row.Region,
+                "barrio": row.ubicacion_principal,
+                "direccion": row.Direccion
+
             },
 
             # DIMENSIÓN PROPIEDAD
             "propiedad": {
+                "titulo" : row.Titulo,
+                "tipo_operacion": row.tipo_operacion,
                 "tipo_propiedad": row.tipo_propiedad,
                 "estado_construccion": row.estado_construccion,
-                "antiguedad_categoria": row.Antiguedad_Categoria
+                "antiguedad_categoria": row.Antiguedad_Categoria,
+                "antiguedad": row.Antiguedad if pd.notna(row.Antiguedad) else None
             }
         }
 

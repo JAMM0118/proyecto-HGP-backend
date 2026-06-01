@@ -18,7 +18,16 @@ prediction_bp = Blueprint(
     methods=["POST"]
 )
 def train():
+    """
+    Entrenar el modelo de predicción
+    ---
+    tags:
+      - Prediction
+    responses:
+      200:
+        description: Modelo entrenado correctamente
 
+    """
     result = train_prediction_model()
 
     return jsonify(result)
@@ -29,9 +38,35 @@ def train():
     methods=["POST"]
 )
 def predict():
-
+    """
+    Predecir el precio de una propiedad
+    ---
+    tags:
+      - Prediction
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          properties:
+            ciudad:
+              type: string
+              example: Bogotá
+            area_construida:
+              type: number
+              example: 120.5
+            habitaciones:
+              type: integer
+              example: 3
+            tipo_propiedad:
+              type: string
+              example: apartamento
+            banos:
+              type: integer
+              example: 2
+    """
     body = request.get_json()
-
     result = predict_price(body)
 
     return jsonify(result)

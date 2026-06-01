@@ -7,6 +7,20 @@ def save_data(data):
 def get_all_data():
     return list(mongo.db.properties.find({}, {"_id": 0}))
 
+def get_properties_page(page_size=20, page=1, filters=None):
+    skip = (page - 1) * page_size
+    query = filters or {}
+
+    return list(
+        mongo.db.properties.find(query, {"_id": 0})
+        .sort("_id", 1)
+        .skip(skip)
+        .limit(page_size)
+    )
+
+def count_properties(filters=None):
+    return mongo.db.properties.count_documents(filters or {})
+
 def save_classified(data):
     if data:
         mongo.db.properties_classified.insert_many(data)
@@ -25,9 +39,7 @@ def get_stats_by_city():
     return list(mongo.db.properties.aggregate(pipeline))
 
 def get_sample_data(limit=20):
-    return list(
-        mongo.db.properties.find({}, {"_id": 0}).limit(limit)
-    )
+    return get_properties_page(page_size=limit, page=1)
 
 
 def save_normalized(data):
