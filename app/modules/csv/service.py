@@ -1,4 +1,5 @@
 from collections import Counter, defaultdict
+import statistics
 
 import pandas as pd
 from app.modules.csv.processor import analyze_quality, classify_property_type, clean_record, normalize_record, transform_to_star_schema
@@ -498,6 +499,173 @@ def get_correlation_matrix_data():
         "total_registros": len(result),
         "columnas": ["precio", "habitaciones", "banos", "area_construida"],
         "datos": result,
+    }
+
+
+def get_market_insights():
+    data = get_all_data()
+
+    city_data = defaultdict(lambda: {
+        "prices": [],
+        "price_per_m2": [],
+        "year_prices": defaultdict(list),
+        "count": 0,
+    })
+
+    for doc in data:
+        city = doc.get("ubicacion", {}).get("ciudad")
+        price = doc.get("precio")
+        area = doc.get("area_construida")
+        year = doc.get("tiempo", {}).get("anio")
+
+        if not city or not isinstance(price, (int, float)):
+            continue
+
+        city_key = str(city).strip().lower()
+        stats = city_data[city_key]
+        price_value = float(price)
+
+        stats["count"] += 1
+        stats["prices"].append(price_value)
+
+        if isinstance(area, (int, float)) and float(area) > 0:
+            stats["price_per_m2"].append(price_value / float(area))
+
+        if isinstance(year, int):
+            stats["year_prices"][year].append(price_value)
+
+    if not city_data:
+        return {
+            "total_ciudades_analizadas": 0,
+            "insights": {
+                "zona_crecimiento_fuerte": None,
+                "propiedades_subvaloradas": [],
+                "volatilidad_precios": None,
+                "mercado_emergente": None,
+                "recomendaciones_inversion": [],
+                "tendencias_generales": [],
+            },
+            "detalle_por_ciudad": [],
+        }
+
+    global_price_per_m2_values = []
+    city_metrics = []
+
+    for city, stats in city_data.items():
+        avg_price = sum(stats["prices"]) / len(stats["prices"]) if stats["prices"] else 0
+
+        if len(stats["prices"]) > 1 and avg_price > 0:
+            volatility = statistics.pstdev(stats["prices"]) / avg_price
+        else:
+            volatility = 0
+
+        avg_price_per_m2 = (
+            sum(stats["price_per_m2"]) / len(stats["price_per_m2"])
+            if stats["price_per_m2"]
+            else 0
+        )
+
+        if avg_price_per_m2 > 0:
+            global_price_per_m2_values.append(avg_price_per_m2)
+
+        years = sorted(stats["year_prices"].keys())
+        first_year = years[0] if years else None
+        last_year = years[-1] if years else None
+
+        first_year_avg = (
+            sum(stats["year_prices"][first_year]) / len(stats["year_prices"][first_year])
+            if first_year is not None and stats["year_prices"][first_year]
+            else None
+        )
+        last_year_avg = (
+            sum(stats["year_prices"][last_year]) / len(stats["year_prices"][last_year])
+            if last_year is not None and stats["year_prices"][last_year]
+            else None
+        )
+
+        if first_year_avg and first_year_avg > 0 and last_year_avg is not None:
+            growth_pct = ((last_year_avg - first_year_avg) / first_year_avg) * 100
+        else:
+            growth_pct = 0
+
+        city_metrics.append({
+            "ciudad": city,
+            "cantidad_propiedades": stats["count"],
+            "precio_promedio": round(avg_price, 2),
+            "precio_promedio_por_m2": round(avg_price_per_m2, 2),
+            "volatilidad": round(volatility, 4),
+            "crecimiento_porcentual": round(growth_pct, 2),
+            "primer_anio": first_year,
+            "ultimo_anio": last_year,
+        })
+
+    global_avg_price_per_m2 = (
+        sum(global_price_per_m2_values) / len(global_price_per_m2_values)
+        if global_price_per_m2_values
+        else 0
+    )
+
+    strongest_growth_city = max(city_metrics, key=lambda item: item["crecimiento_porcentual"])
+    highest_volatility_city = max(city_metrics, key=lambda item: item["volatilidad"])
+
+    undervalued_candidates = [
+        city for city in city_metrics
+        if city["precio_promedio_por_m2"] > 0 and city["precio_promedio_por_m2"] < global_avg_price_per_m2
+    ]
+    undervalued_candidates.sort(key=lambda item: item["precio_promedio_por_m2"])
+
+    emerging_candidates = [
+        city for city in city_metrics
+        if city["crecimiento_porcentual"] > 0
+        and city["precio_promedio_por_m2"] > 0
+        and city["precio_promedio_por_m2"] <= global_avg_price_per_m2
+        and city["cantidad_propiedades"] >= 5
+    ]
+    emerging_candidates.sort(
+        key=lambda item: (item["crecimiento_porcentual"], -item["precio_promedio_por_m2"]),
+        reverse=True,
+    )
+
+    bullish_count = len([city for city in city_metrics if city["crecimiento_porcentual"] > 0])
+    bearish_count = len([city for city in city_metrics if city["crecimiento_porcentual"] < 0])
+
+    trend_summary = []
+    trend_summary.append(
+        f"{bullish_count} ciudades muestran crecimiento de precio promedio y {bearish_count} muestran caida."
+    )
+    trend_summary.append(
+        f"El precio promedio por m2 global estimado es {round(global_avg_price_per_m2, 2)}."
+    )
+
+    recommendations = []
+    recommendations.append(
+        f"Seguir de cerca {strongest_growth_city['ciudad']} por su crecimiento de {strongest_growth_city['crecimiento_porcentual']}%."
+    )
+
+    if undervalued_candidates:
+        recommendations.append(
+            f"Evaluar oportunidades de valor en {undervalued_candidates[0]['ciudad']} por su menor precio por m2 frente al promedio global."
+        )
+
+    recommendations.append(
+        f"Gestionar riesgo en {highest_volatility_city['ciudad']} por mayor volatilidad relativa ({highest_volatility_city['volatilidad']})."
+    )
+
+    return {
+        "total_ciudades_analizadas": len(city_metrics),
+        "insights": {
+            "zona_crecimiento_fuerte": strongest_growth_city,
+            "propiedades_subvaloradas": undervalued_candidates[:3],
+            "volatilidad_precios": highest_volatility_city,
+            "mercado_emergente": emerging_candidates[0] if emerging_candidates else None,
+            "recomendaciones_inversion": recommendations,
+            "tendencias_generales": trend_summary,
+        },
+        "detalle_por_ciudad": sorted(
+            city_metrics,
+            key=lambda item: item["crecimiento_porcentual"],
+            reverse=True,
+        ),
     }
 
 
