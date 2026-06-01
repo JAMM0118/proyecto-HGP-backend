@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from app.modules.csv.model import get_sample_data
 from app.modules.csv.processor import classify_property_type
-from .service import  analyze_data_quality, classify_all_properties, classify_all_properties, clean_dataset, delete_duplicates, get_area_comparison_stats, get_by_city_stats, get_correlation_matrix_data, get_market_insights, get_market_trend_stats, get_price_distribution_stats, get_price_vs_area_stats, get_price_vs_bedrooms_stats, get_properties_page_data, get_property_analysis_stats, get_top_barrio_growth_stats, get_top_cities_stats, normalize_and_store, preview_normalization, process_and_save
+from .service import  analyze_data_quality, classify_all_properties, classify_all_properties, clean_dataset, delete_duplicates, get_area_comparison_stats, get_by_city_stats, get_correlation_matrix_data, get_heatmap_stats, get_market_insights, get_market_trend_stats, get_price_distribution_stats, get_price_vs_area_stats, get_price_vs_bedrooms_stats, get_properties_page_data, get_property_analysis_stats, get_top_barrio_growth_stats, get_top_cities_stats, normalize_and_store, preview_normalization, process_and_save
 
 csv_bp = Blueprint("csv", __name__)
 
@@ -195,6 +195,21 @@ def top_barrio_growth_stats():
         description: Estadísticas de barrios obtenidas correctamente
     """
     result = get_top_barrio_growth_stats(limit=4)
+    return jsonify(result)
+
+
+@csv_bp.route("/heatmap-stats", methods=["GET"])
+def heatmap_stats():
+    """
+    Obtener datos para un mapa de calor con clusters por ciudad y barrios destacados
+    ---
+    tags:
+      - CSV
+    responses:
+      200:
+        description: Estadísticas de mapa de calor obtenidas correctamente
+    """
+    result = get_heatmap_stats()
     return jsonify(result)
 
 @csv_bp.route("/normalize-preview", methods=["GET"])

@@ -669,6 +669,204 @@ def get_market_insights():
     }
 
 
+def get_heatmap_stats():
+    data = get_all_data()
+
+    city_stats = defaultdict(lambda: {
+        "prices": [],
+        "year_prices": defaultdict(list),
+        "count": 0,
+    })
+
+    barrio_stats = defaultdict(lambda: {
+        "prices": [],
+        "year_prices": defaultdict(list),
+        "count": 0,
+        "barrio": None,
+        "ciudad": None,
+    })
+
+    intensity_distribution = {
+        "alto": 0,
+        "medio": 0,
+        "bajo": 0,
+    }
+
+    total_valid_prices = 0
+
+    for doc in data:
+        city = doc.get("ubicacion", {}).get("ciudad")
+        barrio = doc.get("ubicacion", {}).get("barrio")
+        year = doc.get("tiempo", {}).get("anio")
+        price = doc.get("precio")
+
+        if not isinstance(price, (int, float)):
+            continue
+
+        price_value = float(price)
+        total_valid_prices += 1
+
+        if price_value > 500_000_000:
+            intensity_distribution["alto"] += 1
+        elif price_value >= 400_000_000:
+            intensity_distribution["medio"] += 1
+        else:
+            intensity_distribution["bajo"] += 1
+
+        if city:
+            city_key = str(city).strip().lower()
+            city_entry = city_stats[city_key]
+            city_entry["count"] += 1
+            city_entry["prices"].append(price_value)
+
+            if isinstance(year, int):
+                city_entry["year_prices"][year].append(price_value)
+
+        if city and barrio:
+            barrio_key = f"{str(barrio).strip().lower()}||{str(city).strip().lower()}"
+            barrio_entry = barrio_stats[barrio_key]
+            barrio_entry["barrio"] = str(barrio).strip()
+            barrio_entry["ciudad"] = str(city).strip().lower()
+            barrio_entry["count"] += 1
+            barrio_entry["prices"].append(price_value)
+
+            if isinstance(year, int):
+                barrio_entry["year_prices"][year].append(price_value)
+
+    def growth_percentage(year_prices):
+        years = sorted(year_prices.keys())
+
+        if len(years) < 2:
+            return 0
+
+        first_year = years[0]
+        last_year = years[-1]
+        first_year_avg = sum(year_prices[first_year]) / len(year_prices[first_year])
+        last_year_avg = sum(year_prices[last_year]) / len(year_prices[last_year])
+
+        if first_year_avg <= 0:
+            return 0
+
+        return ((last_year_avg - first_year_avg) / first_year_avg) * 100
+
+    def score_items(items, weights):
+        if not items:
+            return []
+
+        ranges = {}
+
+        for metric in weights:
+            values = [float(item[metric]) for item in items]
+            ranges[metric] = (min(values), max(values))
+
+        scored_items = []
+
+        for item in items:
+            score = 0.0
+
+            for metric, weight in weights.items():
+                min_value, max_value = ranges[metric]
+                value = float(item[metric])
+
+                if max_value == min_value:
+                    normalized_value = 1.0
+                else:
+                    normalized_value = (value - min_value) / (max_value - min_value)
+
+                score += normalized_value * weight
+
+            scored_item = dict(item)
+            scored_item["score_cluster"] = round(score, 4)
+            scored_items.append(scored_item)
+
+        return scored_items
+
+    city_metrics = []
+    for city, stats in city_stats.items():
+        avg_price = sum(stats["prices"]) / len(stats["prices"]) if stats["prices"] else 0
+
+        city_metrics.append({
+            "ciudad": city,
+            "cantidad_propiedades": stats["count"],
+            "precio_promedio": round(avg_price, 2),
+            "crecimiento_porcentual": round(growth_percentage(stats["year_prices"]), 2),
+        })
+
+    barrio_metrics = []
+    for stats in barrio_stats.values():
+        avg_price = sum(stats["prices"]) / len(stats["prices"]) if stats["prices"] else 0
+
+        barrio_metrics.append({
+            "barrio": stats["barrio"],
+            "ciudad": stats["ciudad"],
+            "cantidad_propiedades": stats["count"],
+            "precio_promedio": round(avg_price, 2),
+            "crecimiento_porcentual": round(growth_percentage(stats["year_prices"]), 2),
+        })
+
+    top_cities = sorted(
+        score_items(
+            city_metrics,
+            {
+                "cantidad_propiedades": 0.4,
+                "precio_promedio": 0.35,
+                "crecimiento_porcentual": 0.25,
+            },
+        ),
+        key=lambda item: (item["score_cluster"], item["cantidad_propiedades"]),
+        reverse=True,
+    )[:6]
+
+    top_barrio = sorted(
+        score_items(
+            barrio_metrics,
+            {
+                "cantidad_propiedades": 0.35,
+                "precio_promedio": 0.35,
+                "crecimiento_porcentual": 0.3,
+            },
+        ),
+        key=lambda item: (item["score_cluster"], item["cantidad_propiedades"]),
+        reverse=True,
+    )[:8]
+
+    total_for_percentage = total_valid_prices if total_valid_prices else 0
+
+    distribution_percentages = {
+        key: round((value / total_for_percentage) * 100, 2) if total_for_percentage else 0
+        for key, value in intensity_distribution.items()
+    }
+
+    dominant_intensity = None
+    if total_for_percentage:
+        dominant_intensity = max(distribution_percentages.items(), key=lambda item: item[1])[0]
+
+    return {
+        "total_propiedades_analizadas": len(data),
+        "total_propiedades_con_precio": total_valid_prices,
+        "ciudades_cluster": top_cities,
+        "mejores_barrios": top_barrio,
+        "analisis_porcentual_mapa_calor": {
+            "intensidad_dominante": dominant_intensity,
+            "alto": {
+                "rango": ">500M",
+                "cantidad": intensity_distribution["alto"],
+                "porcentaje": distribution_percentages["alto"],
+            },
+            "medio": {
+                "rango": "400M-500M",
+                "cantidad": intensity_distribution["medio"],
+                "porcentaje": distribution_percentages["medio"],
+            },
+            "bajo": {
+                "rango": "<400M",
+                "cantidad": intensity_distribution["bajo"],
+                "porcentaje": distribution_percentages["bajo"],
+            },
+        },
+    }
+
+
 def preview_normalization(limit=20):
     data = get_sample_data(limit)
 
